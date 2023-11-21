@@ -4,6 +4,10 @@
 #include <thread>
 #include "MemUtil.h"
 
+void LetMePlayCDLCEvenThoughIDontHaveCherubRock() {
+	MemUtil.PatchAdr((char*)0x008CA6FC, "\xEB", 1);
+}
+
 DWORD WINAPI MainThread(void*) {
 	uint8_t* VerifySignatureOffset = nullptr;
 
@@ -20,8 +24,10 @@ DWORD WINAPI MainThread(void*) {
 		VerifySignatureOffset = MemUtil.FindPattern(0x00557000, 0x00DDE000, (uint8_t*)"\xE8\x00\x00\x00\x00\x83\xC4\x20\x8A\xD8", "x????xxxxx");
 	}
 
-	if (VerifySignatureOffset)
+	if (VerifySignatureOffset) {
 		MemUtil.PatchAdr(VerifySignatureOffset + 8, "\xB3\x01", 2);
+		LetMePlayCDLCEvenThoughIDontHaveCherubRock();
+	}
 
 	return 0;
 }
