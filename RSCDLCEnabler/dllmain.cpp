@@ -5,7 +5,6 @@
 #include <windows.h> 
 #include "MemUtil.h"
 #include "DualLogger.h"
-#include "detours.h"
 #include "VirtualMemory.h"
 
 void CreateConsole() {
@@ -122,9 +121,9 @@ DWORD WINAPI MainThread(void*) {
 
 			std::cout << "--------" << std::endl;
 		}
-		else {
-			std::cerr << "Pattern not found!" << std::endl;
-		}
+	}
+	else {
+		std::cerr << "Pattern not found!" << std::endl;
 	}
 
 	return 0;
