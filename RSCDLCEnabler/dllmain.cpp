@@ -4,17 +4,36 @@
 #include <thread>
 #include <windows.h> 
 #include "MemUtil.h"
+#include "DualLogger.h"
+std::ofstream logFile;
+
+void InitializeLogging() {
+	logFile.open("log.txt", std::ios::out | std::ios::app);
+	if (!logFile) {
+		std::cerr << "Failed to open log file." << std::endl;
+		return;
+	}
+
+	static DualLogger dualCoutBuf(std::cout.rdbuf(), logFile);
+	static DualLogger dualCerrBuf(std::cerr.rdbuf(), logFile);
+
+	std::cout.rdbuf(&dualCoutBuf);
+	std::cerr.rdbuf(&dualCerrBuf);
+}
 
 void CreateConsole() {
-    AllocConsole();
-    FILE* file;
-    freopen_s(&file, "CONOUT$", "w", stdout);
-    freopen_s(&file, "CONOUT$", "w", stderr);
-    freopen_s(&file, "CONIN$", "r", stdin);  
-    std::cout.clear();
-    std::cerr.clear();
-    std::cin.clear();
-    std::cout << "Console Initialized." << std::endl;
+	AllocConsole();
+	FILE* file;
+	freopen_s(&file, "CONOUT$", "w", stdout);
+	freopen_s(&file, "CONOUT$", "w", stderr);
+	freopen_s(&file, "CONIN$", "r", stdin);
+	std::cout.clear();
+	std::cerr.clear();
+	std::cin.clear();
+	std::cout << "Console Initialized." << std::endl;
+
+	InitializeLogging();
+	std::cout << "Logging Initialized. Writing to console and file." << std::endl;
 }
 
 void LetMePlayCDLCEvenThoughIDontHaveCherubRock() {
