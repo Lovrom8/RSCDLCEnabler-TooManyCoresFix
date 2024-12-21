@@ -1,7 +1,7 @@
 #include "VirtualMemory.h"
 
-NTSTATUS cVirtualMemory::NtProtectVirtualMemory(IN HANDLE process, IN OUT void** baseAddress, IN OUT PSIZE_T size, IN ULONG newProtection, OUT PULONG oldProtection) {
-	typedef NTSTATUS(WINAPI* tNtPVM)(IN HANDLE ProcessHandle, IN OUT void** BaseAddress, IN OUT PSIZE_T NumberOfBytesToProtect, IN ULONG NewAccessProtection, OUT PULONG OldAccessProtection);
+NTSTATUS cVirtualMemory::NtProtectVirtualMemory(IN HANDLE process, IN OUT void** baseAddress, IN OUT size_t* size, IN uint32_t newProtection, OUT uint32_t* oldProtection) {
+	typedef NTSTATUS(WINAPI* tNtPVM)(IN HANDLE ProcessHandle, IN OUT void** BaseAddress, IN OUT size_t* NumberOfBytesToProtect, IN uint32_t NewAccessProtection, OUT uint32_t* OldAccessProtection);
 
 	static tNtPVM ntProtectVirtualMemory = nullptr;
 
@@ -12,10 +12,10 @@ NTSTATUS cVirtualMemory::NtProtectVirtualMemory(IN HANDLE process, IN OUT void**
 		ntProtectVirtualMemory = reinterpret_cast<tNtPVM>(GetProcAddress(ntdll, "NtProtectVirtualMemory"));
 		if (ntProtectVirtualMemory == nullptr) return STATUS_ENTRYPOINT_NOT_FOUND;
 
-		printf_s("NtProtectVirtualMemory loaded...\n");
+		//printf_s("NtProtectVirtualMemory loaded...\n");
 	}
 
-	return NtProtectVirtualMemory(process, baseAddress, size, newProtection, oldProtection);
+	return ntProtectVirtualMemory(process, baseAddress, size, newProtection, oldProtection);
 }
 
 uint32_t cVirtualMemory::GetTextSectionAddress() {

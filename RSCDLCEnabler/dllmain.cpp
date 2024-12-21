@@ -7,21 +7,6 @@
 #include "DualLogger.h"
 #include "detours.h"
 #include "VirtualMemory.h"
-std::ofstream logFile;
-
-void InitializeLogging() {
-	logFile.open("log.txt", std::ios::out | std::ios::app);
-	if (!logFile) {
-		std::cerr << "Failed to open log file." << std::endl;
-		return;
-	}
-
-	static DualLogger dualCoutBuf(std::cout.rdbuf(), logFile);
-	static DualLogger dualCerrBuf(std::cerr.rdbuf(), logFile);
-
-	std::cout.rdbuf(&dualCoutBuf);
-	std::cerr.rdbuf(&dualCerrBuf);
-}
 
 void CreateConsole() {
 	AllocConsole();
@@ -34,12 +19,12 @@ void CreateConsole() {
 	std::cin.clear();
 	std::cout << "Console Initialized." << std::endl;
 
-	InitializeLogging();
+	cDualLogger::InitializeLogging();
 	std::cout << "Logging Initialized. Writing to console and file." << std::endl;
 }
 
 void LetMePlayCDLCEvenThoughIDontHaveCherubRock(uint32_t BaseTextAddress) {
-	uint8_t* AppIdCheckOffset = MemUtil.FindPattern(BaseTextAddress, GetTextSectionLength(), (uint8_t*)"\x8B\x90\x00\x00\x00\x00\x56\xFF\xD2\x84\xC0\x75\x38", "xx????xxxxxxx"); // 0x008CA6FC | same instructions, wrong place - 0x00EE9D5C 
+	uint8_t* AppIdCheckOffset = MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)"\x8B\x90\x00\x00\x00\x00\x56\xFF\xD2\x84\xC0\x75\x38", "xx????xxxxxxx"); // 0x008CA6FC | same instructions, wrong place - 0x00EE9D5C 
 
 	AppIdCheckOffset += 0xB;
 	std::cout << "Pattern found at offset: " << std::hex << (void*)AppIdCheckOffset << std::endl;
@@ -55,11 +40,20 @@ void LetMePlayCDLCEvenThoughIDontHaveCherubRock(uint32_t BaseTextAddress) {
 		}
 
 		if (MemUtil.PatchAdr((char*)AppIdCheckOffset, "\xEB", 1)) {
-			std::cout << "App ID check patched." << std::endl;
+			if (*(byte*)AppIdCheckOffset == 0xEB)
+			{
+				std::cout << "App ID check patched." << std::endl;
+			}
+			else {
+				std::cerr << "Failed to patch App ID check." << std::endl;
+				std::cout << "Found unexpected byte at offset. Expected 0xEB, got " << std::hex << (int)*(byte*)AppIdCheckOffset << std::endl;
+			}
 		}
 		else {
 			std::cerr << "Failed to patch app ID check." << std::endl;
 		}
+
+		std::cout << "--------" << std::endl;
 	}
 	else {
 		std::cerr << "Pattern not found!" << std::endl;
@@ -82,11 +76,10 @@ void vmp_virtualprotect_check_disable()
 
 DWORD WINAPI MainThread(void*) {
 	std::cout << "MainThread started." << std::endl;
-	vmp_virtualprotect_check_disable();
 
 	uint8_t* VerifySignatureOffset = nullptr;
 
-	uint32_t BaseTextAddress = GetTextSectionAddress();
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
 
 	if (BaseTextAddress == 0) {
 		std::cerr << "Failed to get the base address of the .text section." << std::endl;
@@ -98,10 +91,10 @@ DWORD WINAPI MainThread(void*) {
 		Sleep(1000);
 	}
 
-	VerifySignatureOffset = MemUtil.FindPattern(BaseTextAddress, GetTextSectionLength(), (uint8_t*)"\x8B\x45\xFC\x2B\xD8\x03\x45\xF8\x56\x53\x50", "xxxxxxxxxxx");
+	VerifySignatureOffset = MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)"\x8B\x45\xFC\x2B\xD8\x03\x45\xF8\x56\x53\x50", "xxxxxxxxxxx");
 	if (VerifySignatureOffset) {
 		VerifySignatureOffset += 0x13;
-		CheckMemoryProtection((void*)VerifySignatureOffset);
+		VirtualMemory.CheckMemoryProtection((void*)VerifySignatureOffset);
 
 		std::cout << "Pattern found at offset: " << std::hex << (void*)VerifySignatureOffset << std::endl;
 
@@ -116,17 +109,22 @@ DWORD WINAPI MainThread(void*) {
 
 		std::cout << "Patching signature verification..." << std::endl;
 		if (MemUtil.PatchAdr((char*)VerifySignatureOffset, "\xB3\x01", 2)) {
-			std::cout << "Signature verification patched." << std::endl;
-			std::cout << "--------" << std::endl;
+			if (*(byte*)VerifySignatureOffset == 0xB3 && *(byte*)(VerifySignatureOffset + 0x1) == 0x01)
+			{
+				std::cout << "Patched successfully!" << std::endl;
+				LetMePlayCDLCEvenThoughIDontHaveCherubRock(BaseTextAddress);
+			}
+			else {
+				std::cerr << "Failed to patch signature verification." << std::endl;
+				std::cout << "Found unexpected byte at offset. Expected 0xB3, got " << std::hex << (int)*(byte*)VerifySignatureOffset << std::endl;
+				std::cout << "Found unexpected byte at offset+1. Expected 0x01, got " << std::hex << (int)*(byte*)(VerifySignatureOffset + 0x1) << std::endl;
+			}
 
-			LetMePlayCDLCEvenThoughIDontHaveCherubRock(BaseTextAddress);
+			std::cout << "--------" << std::endl;
 		}
 		else {
-			std::cerr << "Failed to patch signature verification." << std::endl;
+			std::cerr << "Pattern not found!" << std::endl;
 		}
-	}
-	else {
-		std::cerr << "Pattern not found!" << std::endl;
 	}
 
 	return 0;
@@ -134,6 +132,7 @@ DWORD WINAPI MainThread(void*) {
 
 void Initialize(void) {
 	CreateConsole();
+	//vmp_virtualprotect_check_disable();
 	CreateThread(NULL, 0, MainThread, NULL, NULL, 0);
 }
 
