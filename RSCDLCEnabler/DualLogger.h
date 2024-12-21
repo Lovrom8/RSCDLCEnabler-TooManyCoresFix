@@ -3,17 +3,24 @@
 #include <iostream>
 #include <fstream>
 
-class DualLogger : public std::streambuf {
+
+#include <iostream>
+#include <fstream>
+#include <streambuf>
+
+class cDualLogger : public std::streambuf {
 public:
-    DualLogger(std::streambuf* consoleBuf, std::ostream& fileStream);
+	cDualLogger(std::streambuf* consoleBuf, std::ostream& fileStream);
+
+	static void InitializeLogging();
 
 protected:
-    int overflow(int c) override;
-    int sync() override;
+	int overflow(int c) override;
+	int sync() override;
 
 private:
-    std::streambuf* consoleBuf;
-    std::ostream& fileStream;
-};
+	std::streambuf* consoleBuf;
+	std::ostream& fileStream;
 
-void InitializeLogging();
+	static cDualLogger* instance;
+};

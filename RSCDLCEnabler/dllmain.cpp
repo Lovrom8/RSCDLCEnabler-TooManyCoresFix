@@ -1,12 +1,12 @@
-﻿#include "d3dx9_42.h"
+#include "d3dx9_42.h"
 #include <fstream>
 #include <iostream>
 #include <thread>
 #include <windows.h> 
 #include "MemUtil.h"
 #include "DualLogger.h"
-#include "MemoryHelpers.h"
-
+#include "detours.h"
+#include "VirtualMemory.h"
 std::ofstream logFile;
 
 void InitializeLogging() {
@@ -45,7 +45,7 @@ void LetMePlayCDLCEvenThoughIDontHaveCherubRock(uint32_t BaseTextAddress) {
 	std::cout << "Pattern found at offset: " << std::hex << (void*)AppIdCheckOffset << std::endl;
 
 	if (AppIdCheckOffset) {
-		CheckMemoryProtection((void*)AppIdCheckOffset);
+		VirtualMemory.CheckMemoryProtection((void*)AppIdCheckOffset);
 
 		if (*(byte*)AppIdCheckOffset != 0x75) {
 			std::cout << "Found unexpected byte at offset. Expected 0x75, got " << std::hex << (int)*(byte*)AppIdCheckOffset << std::endl;

@@ -1,5 +1,7 @@
 #include "windows.h"
 #include <vector>
+
+#pragma once
 	
 class cOffsets {
 public:
@@ -51,8 +53,6 @@ public:
 	const char* patch_ListSpaces = "\x58\x58\x90\x90\x90";
 	const char* patch_ListNumbers = "\x5A\x5A\x90\x90\x90";
 	const char* patch_SprintfArgs = "\x04";
-
-	void Initialize();
 };
 
 extern cOffsets Offsets;

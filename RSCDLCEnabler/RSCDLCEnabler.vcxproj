@@ -13,22 +13,29 @@
   <ItemGroup>
     <ClCompile Include="D3DX9_42.cpp" />
     <ClCompile Include="DLLMain.cpp" />
+    <ClCompile Include="DualLogger.cpp" />
     <ClCompile Include="MemUtil.cpp" />
-    <ClCompile Include="Offsets.cpp" />
+    <ClCompile Include="VirtualMemory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3DX9_42.h" />
+    <ClInclude Include="detours.h" />
+    <ClInclude Include="DualLogger.h" />
+    <ClInclude Include="VirtualMemory.h" />
     <ClInclude Include="MemUtil.h" />
-    <ClInclude Include="Offsets.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="d3dx9_42.def" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="detours.lib" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{E312CF39-2170-4C1A-AC11-3A9C1C2E7399}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>RSCDLCEnabler</RootNamespace>
     <ProjectName>RSCDLCEnabler-2023Edition</ProjectName>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -46,6 +53,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -60,6 +68,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <PostBuildEventUseInBuild>true</PostBuildEventUseInBuild>
+    <TargetName>D3DX9_42</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -75,7 +84,7 @@
       <ModuleDefinitionFile>d3dx9_42.def</ModuleDefinitionFile>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(TargetPath)" "C:\Games\Steam\steamapps\common\Rocksmith2014\D3DX9_42.dll"</Command>
+      <Command>copy /Y "$(TargetPath)" "C:\Program Files (x86)\Steam\steamapps\common\Rocksmith2014\D3DX9_42.dll"</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>Copying to RS2014 folder...</Message>
@@ -100,9 +109,10 @@
       <OptimizeReferences>true</OptimizeReferences>
       <ModuleDefinitionFile>d3dx9_42.def</ModuleDefinitionFile>
       <AdditionalLibraryDirectories>SDK Path\Lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);detours.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(TargetPath)" "C:\Games\Steam\steamapps\common\Rocksmith2014\D3DX9_42.dll"</Command>
+      <Command>copy /Y "$(TargetPath)" "C:\Program Files (x86)\Steam\steamapps\common\Rocksmith2014\D3DX9_42.dll"</Command>
       <Command>copy /Y "$(TargetPath)" "$(SolutionDir)D3DX9_42.dll"</Command>
     </PostBuildEvent>
     <PostBuildEvent>
@@ -111,5 +121,6 @@
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
   </ImportGroup>
 </Project>
