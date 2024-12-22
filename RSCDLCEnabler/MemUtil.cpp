@@ -4,44 +4,55 @@
 cMemUtil MemUtil;
 cVirtualMemory VirtualMemory;
 
+EXTERN_C NTSTATUS NtProtectVirtualMemory(
+	IN HANDLE ProcessHandle,
+	IN OUT PVOID* BaseAddress,
+	IN OUT PSIZE_T RegionSize,
+	IN ULONG NewProtect,
+	OUT PULONG OldProtect
+);
+
 bool cMemUtil::PatchAdr(LPVOID dst, LPVOID src, size_t len) {
-	uint32_t oldProtect, dummy;
+	ULONG oldProtect, dummy;  
 	NTSTATUS ret;
 
 	SYSTEM_INFO si;
 	GetSystemInfo(&si);
-	size_t pageSize = si.dwPageSize;
+	SIZE_T pageSize = si.dwPageSize;  
 
 	LPVOID pageStart = (LPVOID)((uintptr_t)dst & ~(pageSize - 1));
-	size_t pageOffset = (uintptr_t)dst - (uintptr_t)pageStart;
+	SIZE_T pageOffset = (uintptr_t)dst - (uintptr_t)pageStart;  
 
-	size_t totalLength = pageOffset + len;
-	const static auto CurrentProcess = GetCurrentProcess();
+	SIZE_T totalLength = pageOffset + len;  
+	const HANDLE CurrentProcess = GetCurrentProcess();  
 
-	ret = VirtualMemory.NtProtectVirtualMemory(CurrentProcess, &pageStart, &totalLength, PAGE_EXECUTE_READWRITE, &oldProtect);
+	LPVOID memCpLoc = dst;
+	ret = NtProtectVirtualMemory(CurrentProcess, &pageStart, &totalLength, PAGE_EXECUTE_READWRITE, &oldProtect);
+
 	if (!NT_SUCCESS(ret)) {
 		printf_s("Failed to change memory protection. Status: 0x%08X\n", ret);
 		return false;
 	}
+	else
+		printf_s("Managed to change. Status: 0x%08X\n", ret);
+	
+	VirtualMemory.CheckMemoryProtection(dst);
 
-	memcpy(dst, src, len);
+	memcpy(memCpLoc, src, len);
 
-	/*if (!FlushInstructionCache(CurrentProcess, dst, len)) {
-		DWORD error = GetLastError();
-		printf("FlushInstructionCache failed: dst=%p, len=%zu, error=%lu\n", dst, len, error);
-	}*/
-
-	ret = VirtualMemory.NtProtectVirtualMemory(CurrentProcess, &pageStart, &totalLength, oldProtect, &dummy);
+	ret = NtProtectVirtualMemory(CurrentProcess, &pageStart, &totalLength, oldProtect, &dummy);
 	if (!NT_SUCCESS(ret)) {
 		printf_s("Failed to restore memory protection. Status: 0x%08X\n", ret);
 		return false;
-	}
+	} 
 
 	printf_s("Patched %zu bytes successfully at address %p\n", len, dst);
 	return true;
 }
 
-bool cMemUtil::PlaceHook(void * hookSpot, void * ourFunct, int len)
+
+
+bool cMemUtil::PlaceHook(void* hookSpot, void* ourFunct, int len)
 {
 	if (len < 5)
 		return false;
@@ -79,7 +90,7 @@ uintptr_t cMemUtil::FindDMAAddy(uintptr_t ptr, std::vector<unsigned int> offsets
 	return addr;
 }
 
-bool bCompare(const BYTE* pData, const byte * bMask, const char* szMask) {
+bool bCompare(const BYTE* pData, const byte* bMask, const char* szMask) {
 	for (; *szMask; ++szMask, ++pData, ++bMask)
 		if (*szMask == 'x' && *pData != *bMask)
 			return 0;

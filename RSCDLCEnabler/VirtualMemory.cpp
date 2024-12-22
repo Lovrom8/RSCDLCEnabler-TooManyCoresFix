@@ -1,6 +1,6 @@
 #include "VirtualMemory.h"
 
-NTSTATUS cVirtualMemory::NtProtectVirtualMemory(IN HANDLE process, IN OUT void** baseAddress, IN OUT size_t* size, IN uint32_t newProtection, OUT uint32_t* oldProtection) {
+NTSTATUS cVirtualMemory::NtProtectVirtualMemoryDirect(IN HANDLE process, IN OUT void** baseAddress, IN OUT size_t* size, IN uint32_t newProtection, OUT uint32_t* oldProtection) {
 	typedef NTSTATUS(WINAPI* tNtPVM)(IN HANDLE ProcessHandle, IN OUT void** BaseAddress, IN OUT size_t* NumberOfBytesToProtect, IN uint32_t NewAccessProtection, OUT uint32_t* OldAccessProtection);
 
 	static tNtPVM ntProtectVirtualMemory = nullptr;

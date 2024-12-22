@@ -97,7 +97,7 @@ DWORD WINAPI MainThread(void*) {
 
 		std::cout << "Pattern found at offset: " << std::hex << (void*)VerifySignatureOffset << std::endl;
 
-		if (*(byte*)VerifySignatureOffset != 0x8A && *(byte*)(VerifySignatureOffset + 0x1) == 0xD8) {
+		if (*(byte*)VerifySignatureOffset != 0x8A || *(byte*)(VerifySignatureOffset + 0x1) != 0xD8) {
 			std::cout << "Found unexpected byte at offset. Expected 0x8A, got " << std::hex << (int)*(byte*)VerifySignatureOffset << std::endl;
 			std::cout << "Found unexpected byte at offset+1. Expected 0xD8, got " << std::hex << (int)*(byte*)(VerifySignatureOffset + 0x1) << std::endl;
 			return 0;
