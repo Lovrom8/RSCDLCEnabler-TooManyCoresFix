@@ -1,5 +1,7 @@
 #include "MemUtil.h"
 #include "VirtualMemory.h"
+#include "syscaller.h"
+#include "winternl.h"
 
 cMemUtil MemUtil;
 cVirtualMemory VirtualMemory;
@@ -57,20 +59,43 @@ bool cMemUtil::PlaceHook(void* hookSpot, void* ourFunct, int len)
 	if (len < 5)
 		return false;
 
-	DWORD oldProtect;
-	if (!VirtualProtect(hookSpot, len, PAGE_EXECUTE_READWRITE, &oldProtect))
-		return false;
+	//if (!VirtualProtect(hookSpot, len, PAGE_EXECUTE_READWRITE, &oldProtect))
+	//	return false;
 
-	memset(hookSpot, 0x90, len);
+	ULONG oldProtect, dummy;
+	NTSTATUS ret;
+
+	SYSTEM_INFO si;
+	GetSystemInfo(&si);
+	SIZE_T pageSize = si.dwPageSize;
+
+	LPVOID pageStart = (LPVOID)((uintptr_t)hookSpot & ~(pageSize - 1));
+	SIZE_T pageOffset = (uintptr_t)hookSpot - (uintptr_t)pageStart;
+
+	SIZE_T totalLength = pageOffset + len;
+	const HANDLE CurrentProcess = GetCurrentProcess();
+
+	LPVOID hookAdr = hookSpot;
+	ret = NtProtectVirtualMemory(CurrentProcess, &pageStart, &totalLength, PAGE_EXECUTE_READWRITE, &oldProtect);
+
+	if (!NT_SUCCESS(ret)) {
+		printf_s("Failed to change memory protection. Status: 0x%08X\n", ret);
+		return false;
+	}
+	else
+		printf_s("Managed to change. Status: 0x%08X\n", ret);
+
+	memset(hookAdr, 0x90, len);
 
 	DWORD relativeAddr = ((DWORD)ourFunct - (DWORD)hookSpot) - 5;
 
 	*(BYTE*)hookSpot = 0xE9;
 	*(DWORD*)((DWORD)hookSpot + 1) = relativeAddr;
 
-	DWORD backup;
-	if (!VirtualProtect(hookSpot, len, oldProtect, &backup))
-		return false;
+	ret = NtProtectVirtualMemory(CurrentProcess, &pageStart, &totalLength, oldProtect, &dummy);
+
+	//if (!VirtualProtect(hookSpot, len, oldProtect, &backup))
+	//	return false;
 
 	return true;
 }

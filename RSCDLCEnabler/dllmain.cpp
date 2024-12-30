@@ -5,7 +5,9 @@
 #include <windows.h> 
 #include "MemUtil.h"
 #include "DualLogger.h"
+#include "detours.h"
 #include "VirtualMemory.h"
+#include "NtProtectVirtualMemory.h"
 
 void CreateConsole() {
 	AllocConsole();
@@ -59,18 +61,23 @@ void LetMePlayCDLCEvenThoughIDontHaveCherubRock(uint32_t BaseTextAddress) {
 	}
 }
 
-void vmp_virtualprotect_check_disable()
-{
-	DWORD old_protect = 0;
-	auto ntdll = GetModuleHandleA("ntdll.dll");
+DWORD hookAddr;
+DWORD len;
+DWORD hookBackAddr;
 
-	BYTE callcode = ((BYTE*)GetProcAddress(ntdll, "NtQuerySection"))[1] - 1;
-	BYTE restore[] = { 0xB8, callcode, 0x00, 0x00, 0x00 };
+void PatchSongKeyLookupTable() {
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
 
-	auto nt_vp = (BYTE*)GetProcAddress(ntdll, "NtProtectVirtualMemory");
-	VirtualProtect(nt_vp, sizeof(restore), PAGE_EXECUTE_READWRITE, &old_protect);
-	memcpy(nt_vp, restore, sizeof(restore));
-	VirtualProtect(nt_vp, sizeof(restore), old_protect, &old_protect);
+	const char* sig = "\x74\x00\x83\xC1\x00\x81\xF9\x00\x00\x00\x00\x72";
+	char* mask = "x?xx?xx????x";	
+	
+	DWORD patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+	if (MemUtil.PatchAdr((char*)patchAdr, "\xEB", 1)) {
+		std::cout << "Patched song key lookup successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to patch!" << std::endl;
+	}
 }
 
 DWORD WINAPI MainThread(void*) {
@@ -90,6 +97,7 @@ DWORD WINAPI MainThread(void*) {
 		Sleep(1000);
 	}
 
+
 	VerifySignatureOffset = MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)"\x8B\x45\xFC\x2B\xD8\x03\x45\xF8\x56\x53\x50", "xxxxxxxxxxx");
 	if (VerifySignatureOffset) {
 		VerifySignatureOffset += 0x13;
@@ -107,11 +115,13 @@ DWORD WINAPI MainThread(void*) {
 		}
 
 		std::cout << "Patching signature verification..." << std::endl;
+
 		if (MemUtil.PatchAdr((char*)VerifySignatureOffset, "\xB3\x01", 2)) {
 			if (*(byte*)VerifySignatureOffset == 0xB3 && *(byte*)(VerifySignatureOffset + 0x1) == 0x01)
 			{
 				std::cout << "Patched successfully!" << std::endl;
 				LetMePlayCDLCEvenThoughIDontHaveCherubRock(BaseTextAddress);
+				PatchSongKeyLookupTable();
 			}
 			else {
 				std::cerr << "Failed to patch signature verification." << std::endl;
@@ -131,7 +141,6 @@ DWORD WINAPI MainThread(void*) {
 
 void Initialize(void) {
 	CreateConsole();
-	//vmp_virtualprotect_check_disable();
 	CreateThread(NULL, 0, MainThread, NULL, NULL, 0);
 }
 

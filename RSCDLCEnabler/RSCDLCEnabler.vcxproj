@@ -30,6 +30,9 @@
   <ItemGroup>
     <MASM Include="NtProtectVirtualMemory.asm" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="Experiments.txt" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{E312CF39-2170-4C1A-AC11-3A9C1C2E7399}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>

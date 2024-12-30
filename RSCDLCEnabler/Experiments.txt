@@ -1,0 +1,959 @@
+	/*hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+		(uint8_t*)"\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC5\x89\x45\x00\x53\x56\x8B\xF2\x57",
+		"xx????x????xxxx?xxxxx");
+	len = 0x6;
+
+	hookBackAddr = hookAddr + len;
+	if (MemUtil.PlaceHook((void*)hookAddr, hook_PrintAlive2, len)) {
+		std::cout << "Hooked function successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to hook function!" << std::endl;
+	}*/
+
+		/*const char* sig = "\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC4\x89\x84\x24\x00\x00\x00\x00\x53\x56\x8B\xF1\x57\x89\x74\x24\x00\xE8\x00\x00\x00\x00\xDD\x9E";
+	char* mask = "xx????x????xxxxx????xxxxxxxx?x????xx";
+
+	hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+	len = 0x6;
+
+	hookBackAddr = hookAddr + len;
+	if (MemUtil.PlaceHook((void*)hookAddr, hook_PrintAliveTest, len)) {
+		std::cout << "Hooked function successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to hook function!" << std::endl;
+	}*/
+
+	void vmp_virtualprotect_check_disable()
+{
+	DWORD old_protect = 0;
+	auto ntdll = GetModuleHandleA("ntdll.dll");
+
+	BYTE callcode = ((BYTE*)GetProcAddress(ntdll, "NtQuerySection"))[1] - 1;
+	BYTE restore[] = { 0xB8, callcode, 0x00, 0x00, 0x00 };
+
+	auto nt_vp = (BYTE*)GetProcAddress(ntdll, "NtProtectVirtualMemory");
+	std::cout << "VMP:" << VirtualProtect(nt_vp, sizeof(restore), PAGE_EXECUTE_READWRITE, &old_protect) << std::endl;
+	memcpy(nt_vp, restore, sizeof(restore));
+	VirtualProtect(nt_vp, sizeof(restore), old_protect, &old_protect);
+}
+
+// Typedef for the original VirtualProtect function
+typedef BOOL(WINAPI* VirtualProtect_t)(
+	LPVOID lpAddress,
+	SIZE_T dwSize,
+	DWORD flNewProtect,
+	PDWORD lpflOldProtect
+	);
+
+// Pointer to the original VirtualProtect function
+VirtualProtect_t OriginalVirtualProtect = nullptr;
+
+// Hooked VirtualProtect function
+BOOL WINAPI HookedVirtualProtect(
+	LPVOID lpAddress,
+	SIZE_T dwSize,
+	DWORD flNewProtect,
+	DWORD lpflOldProtect
+) {
+	std::cout << "VirtualProtect Hooked!" << std::endl;
+	/*std::cout << "Address: " << lpAddress
+		<< ", Size: " << dwSize
+		<< ", NewProtect: " << flNewProtect << std::endl;
+		*/
+
+		// Log the ACCESS_DENIED error and bypass it
+		/*if (flNewProtect == PAGE_EXECUTE_READWRITE || flNewProtect == PAGE_EXECUTE_READ) {
+			// Log the attempt
+			std::cout << "Trying to set execute permissions. Bypassing ACCESS_DENIED..." << std::endl;
+
+			// Attempt to call NtProtectVirtualMemory directly to bypass kernel32.dll checks
+			NTSTATUS status;
+			HANDLE processHandle = GetCurrentProcess();
+			PVOID baseAddress = lpAddress;
+			ULONG oldProtect;
+
+			status = VirtualMemory.NtProtectVirtualMemory(
+				processHandle,
+				&baseAddress,
+				&dwSize,
+				flNewProtect,
+				&lpflOldProtect
+			);
+
+			if (status == 0) {
+				std::cout << "Bypassed ACCESS_DENIED via NtProtectVirtualMemory." << std::endl;
+				return TRUE;
+			}
+
+			std::cerr << "NtProtectVirtualMemory failed. Status: " << status << std::endl;
+		}*/
+
+		//return OriginalVirtualProtect(lpAddress, dwSize, flNewProtect, &lpflOldProtect);
+	return true;
+}
+
+void HookVirtualProtect() {
+	HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
+	if (!hKernel32) {
+		std::cerr << "Failed to get handle to kernel32.dll" << std::endl;
+		return;
+	}
+
+	OriginalVirtualProtect = (VirtualProtect_t)GetProcAddress(hKernel32, "VirtualProtect");
+	if (!OriginalVirtualProtect) {
+		std::cerr << "Failed to find VirtualProtect" << std::endl;
+		return;
+	}
+
+	// Apply the hook using Detours
+	DetourTransactionBegin();
+	DetourUpdateThread(GetCurrentThread());
+	DetourAttach((void**)&OriginalVirtualProtect, HookedVirtualProtect);
+	DetourTransactionCommit();
+
+	std::cout << "VirtualProtect hooked successfully!" << std::endl;
+}
+
+// Unhook the VirtualProtect function
+void UnhookVirtualProtect() {
+	DetourTransactionBegin();
+	DetourUpdateThread(GetCurrentThread());
+	DetourDetach((void**)&OriginalVirtualProtect, HookedVirtualProtect);
+	DetourTransactionCommit();
+
+	std::cout << "VirtualProtect unhooked successfully!" << std::endl;
+}
+
+//addr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+//	(uint8_t*)"\x55\x8B\xEC\x83\xEC\x00\x53\x8B\x5D\x00\x56\x57\x8D\x45\x00\x50\x51",
+//	"xxxxx?xxx?xxxx?xx");
+
+/*const char* sig = "\xE8\x00\x00\x00\x00\x8B\xD8\x83\xC4\x00\x89\x9D\x00\x00\x00\x00\x85\xDB\x74\x00\x8B\x03";
+char* mask = "x????xxxx?xx????xxx?xx";
+
+hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+len = 0x5;
+
+hookBackAddr = hookAddr + len;
+if (MemUtil.PlaceHook((void*)hookAddr, hook_Test, len)) {
+	std::cout << "Hooked function successfully!" << std::endl;
+}
+else {
+	std::cerr << "Failed to hook function!" << std::endl;
+}*/
+
+// IMPORTANT
+
+/* DWORD patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+	(uint8_t*)"\x75\x00\x8B\xCF\x8D\xB5\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x8D\x48\x00\xC6\x45\x00\x00\x39\x48\x00\x74\x00\x8B\x00\x50\xE8\x00\x00\x00\x00\x83\xC4\x00\x8D\x8D\x00\x00\x00\x00\xC6\x45\x00\x00\xE8\x00\x00\x00\x00\xC7\x45",
+	"x?xxxx????x????xx?xx??xx?x?xxxx????xx?xx????xx??x????xx");
+
+patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+	(uint8_t*)
+	"\x74\x00\x8B\x45\x00\x8B\x4D\x00\x8B\x55\x00\x50\x8B\x45\x00\x53",
+	"x?xx?xx?xx?xxx?x");*/
+
+	/*if (MemUtil.PatchAdr((char*)patchAdr, "\xEB", 1)) {
+		std::cout << "Patched successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to patch!" << std::endl;
+	}*/
+
+	//LPVOID patch = "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90";
+	//if (MemUtil.PatchAdr((char*)patchAdr, patch, 28))
+
+	//const char* sig = "\xE8\x00\x00\x00\x00\x8B\x55\x00\x8B\x86\x00\x00\x00\x00\x8B\x7D";
+	//char* mask = "x????xx?xx????xx";
+
+	//DWORD patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+	//	(uint8_t*)"\x51\xC7\x45\x00\x00\x00\x00\x00\x8B\x55",
+	//	"xxx?????xx");
+
+	//LPVOID patch = "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90";
+	//if (MemUtil.PatchAdr((char*)patchAdr, patch, 28)) {
+
+	/*DWORD patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+		(uint8_t*)"\x8D\x45\x00\xE8\x00\x00\x00\x00\xB0\x00\x8B\x4D",
+		"xx?x????x?xx");
+
+	LPVOID patch = "\x90\x90\x90\x90\x90\x90\x90\x90";
+	if (MemUtil.PatchAdr((char*)patchAdr, patch, 8)) {
+		std::cout << "Patched successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to patch!" << std::endl;
+	}*/
+
+	/*addr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+		(uint8_t*)"\x55\x8B\xEC\x8B\x4D\x00\x53\x56\x57\x8B\x7D\x00\x2B\xF9",
+		"xxxxx?xxxxx?xx");
+	const char* sig = "\xC7\x45\x00\x00\x00\x00\x00\x8B\x06\x50\x8B\xCF";
+	char* mask = "xx?????xxxxx";
+	*/
+
+	/*const char* sig = "\xE8\x00\x00\x00\x00\x63\x83\x00\x00\x00\x00\xC0\xFC";
+	char* mask = "x????xx????xx";
+
+	hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+	len = 0x5;
+
+	hookBackAddr = hookAddr + len;
+	MemUtil.PlaceHook((void*)hookAddr, hook_3, len);*/
+
+	// Patch the data call - doesn't show album art
+	/*MemUtil.PatchAdr((char*)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+		(uint8_t*)"\x6A\x00\x8D\x85\x00\x00\x00\x00\x50\x8D\x8D\x00\x00\x00\x00\x51\x8D\x95",
+		"x?xx????xxx????xxx"),
+		"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90", 32);
+*/
+
+/* test for data
+
+
+const char* sig = "\x8D\xB5\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x8D\x85\x00\x00\x00\x00\x50\x51\xC6\x45";
+char* mask = "xx????x????xx????xxxx";
+
+hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+len = 0x6;
+
+hookBackAddr = hookAddr + len;
+MemUtil.PlaceHook((void*)hookAddr, hook_1, len);*/
+
+/*const char* sig2 = "\x8D\x85\x00\x00\x00\x00\x50\x68\x00\x00\x00\x00\x8B\xCB";
+char* mask2 = "xx????xx????xx";
+
+hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig2, mask2);
+len = 0x6;
+
+hookBackAddr = hookAddr + len;
+MemUtil.PlaceHook((void*)hookAddr, hook_2, len);*/
+
+/*MemUtil.PatchAdr((char*)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+(uint8_t*)"\x0F\x84\x00\x00\x00\x00\x6A\x00\xFF\x15\x00\x00\x00\x00\x83\xC4\x00\x89\x85", "xx????x?xx????xx?xx"),
+	"\x90\x90\x90\x90\x90\x90", 6);
+
+MemUtil.PatchAdr((char*)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+	(uint8_t*)"\x74\x00\x8B\x07\x51\x50\x8B\xC6\xE8\x00\x00\x00\x00\x8B\x8D", "x?xxxxxxx????xx"),
+	"\x90\x90", 2);*/
+
+	/* WHICH FUNCTION TEST
+
+	const char* sig = "\x55\x8B\xEC\x6A\x00\x68\x00\x00\x00\x00\x64\xA1\x00\x00\x00\x00\x50\x83\xEC\x00\x53\x56\x57\xA1\x00\x00\x00\x00\x33\xC5\x50\x8D\x45\x00\x64\xA3\x00\x00\x00\x00\x89\x65\x00\x8B\xF1\x8B\x4E";
+	char* mask = "xxxx?x????xx????xxx?xxxx????xxxxx?xx????xx?xxxx";
+
+	hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+	len = 0x5;
+
+	hookBackAddr = hookAddr + len;
+	MemUtil.PlaceHook((void*)hookAddr, hook_1, len);
+
+	const char* sig2 = "\x55\x8B\xEC\x83\xEC\x00\x53\x56\x8B\xF0\x8B\x4E\x00\x2B\x4D";
+	char* mask2 = "xxxxx?xxxxxx?xx";
+
+	hookAddr2 = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig2, mask2);
+	len2 = 0x6;
+
+	hookBackAddr2 = hookAddr2 + len2;
+	MemUtil.PlaceHook((void*)hookAddr2, hook_2, len2);*/
+
+	//hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), 
+		// (uint8_t*)"\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC4\x89\x84\x24\x00\x00\x00\x00\x53\x56\x8B\xD9\x33\xF6", "xx????x????xxxxx????xxxxxx");
+		//len = 0x6;
+
+		/*hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+			(uint8_t*)"\x83\xC2\x00\x53\x56",
+			"xx?xx");
+		len = 0x5;*/
+
+		/*hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+			(uint8_t*)"\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC4\x89\x84\x24\x00\x00\x00\x00\x53\x56\x57\x8B\xD9\xE8\x00\x00\x00\x00\x85\xC0",
+			"xx????x????xxxxx????xxxxxx????xx");
+		len = 0x6;*/
+
+		/*
+		// Guided/Lessons
+		hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+			(uint8_t*)"\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC4\x89\x84\x24\x00\x00\x00\x00\x53\x56\x8B\xF1\x8D\x44\x24",
+			"xx????x????xxxxx????xxxxxxx");
+		len = 0x6;*/
+
+		/* Not called
+		hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+			(uint8_t*)"\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC5\x89\x45\x00\x8B\x45\x00\xD9\xEE\x53\xDD\x9D\x00\x00\x00\x00\x56\x57\x89\x85\x00\x00\x00\x00\x8B\xF2\x8D\x55\x00\x8D\x45\x00\x68\x00\x00\x00\x00\x89\x45\x00\x68\x00\x00\x00\x00\x8B\xC2\x89\xB5\x00\x00\x00\x00\x89\x8D\x00\x00\x00\x00\x89\x55\x00\xE8\x00\x00\x00\x00\x8D\x4D",
+			"xx????x????xxxx?xx?xxxxx????xxxx????xxxx?xx?x????xx?x????xxxx????xx????xx?x????xx");
+		len = 0x6;*/
+
+		/*const char* sig = "\x83\xE4\x00\x83\xEC\x00\x53\x56\x57\x8D\x44\x24\x00\x8B\xD9\x50\xB9\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x8B\x93";
+		char* mask = "xx?xx?xxxxxx?xxxx????x????xx";*/
+
+		/* LAS SONG INFO  - single songs
+		const char* sig = "\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC5\x89\x45\x00\x8B\x45\x00\x89\x8D";
+		char* mask = "xx????x????xxxx?xx?xx";
+		*/
+
+		/* SONG INFO - NOT CALLED
+			const char* sig = "\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC4\x89\x84\x24\x00\x00\x00\x00\x8B\x45\x00\x53\x56\x33\xDB";
+			char* mask = "xx????x????xxxxx????xx?xxxx";
+			*/
+
+			/* IsFeaturedDLC - not called on startup
+
+			const char* sig = "\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC4\x89\x84\x24\x00\x00\x00\x00\x53\x56\x57\x8B\x7D\x00\x8B\xF1\x89\x74\x24";
+			char* mask = "xx????x????xxxxx????xxxxx?xxxxx"; */
+
+			/* LAST iterate
+			const char* sig = "\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC4\x89\x84\x24\x00\x00\x00\x00\x53\x56\x8B\xF1\x8B\x86\x00\x00\x00\x00\x33\xDB";
+			char* mask = "xx????x????xxxxx????xxxxxx????xx";
+			*/
+
+			/* not called
+			const char* sig = "\x8B\xEC\x83\xE4\x00\x83\xEC\x00\xA1\x00\x00\x00\x00\x33\xC4\x89\x44\x24\x00\x53\x56\x57\x51\x8B\xD9\x8B\x4D\x00\x8B\xC4\x89\x08\x8B\x4D\x00\x89\x5C\x24\x00\x85\xC9\x74\x00\x8B\x11\x8B\x02\xFF\xD0\x8B\x7D";
+			char* mask = "xxxx?xx?x????xxxxx?xxxxxxxx?xxxxxx?xxx?xxx?xxxxxxxx";
+			*/
+
+			/* not called - RS1 and similar
+			const char* sig = "\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC4\x89\x84\x24\x00\x00\x00\x00\x53\x56\x8B\xF1\x8B\x86\x00\x00\x00\x00\x33\xC9";
+			char* mask = "xx????x????xxxxx????xxxxxx????xx";
+
+
+			const char* sig = "\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC4\x89\x84\x24\x00\x00\x00\x00\x53\x56\x8B\xF1\x8B\x86\x00\x00\x00\x00\x57\x33\xFF";
+			char* mask = "xx????x????xxxxx????xxxxxx????xxx";
+			*/
+
+			/*const char* sig = "\x8B\x86\x00\x00\x00\x00\x3B\x86\x00\x00\x00\x00\x75\x00\x8D\x7E";
+			char* mask = "xx????xx????x?xx";*/
+
+			/* appiD check
+			const char* sig = "\x8D\xB5\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x8D\x48\x00\xC6\x45\x00\x00\x39\x48\x00\x74\x00\x8B\x00\x50\x8D\x95\x00\x00\x00\x00\x52\xE8\x00\x00\x00\x00\x83\xC4\x00\x8D\x8D";
+			char* mask = "xx????x????xx?xx??xx?x?xxxxx????xx????xx?xx";
+			*/
+
+			//const char* sig = "\x55\x8B\xEC\x6A\x00\x68\x00\x00\x00\x00\x64\xA1\x00\x00\x00\x00\x50\x83\xEC\x00\xA1\x00\x00\x00\x00\x33\xC5\x89\x45\x00\x53\x57\x50\x8D\x45\x00\x64\xA3\x00\x00\x00\x00\x33\xDB\x38\x5E\x00\x74";
+			//char* mask = "xxxx?x????xx????xxx?x????xxxx?xxxxx?xx????xxxx?x";
+
+			/*
+			package header
+			const char* sig = "\x81\xEC\x00\x00\x00\x00\xA1\x00\x00\x00\x00\x33\xC5\x89\x45\x00\x53\x56\x8B\xF2\x57";
+			char* mask = "xx????x????xxxx?xxxxx";
+			*/
+
+			/*const char* sig = "\x8B\x45\x00\x83\xEC\x00\x57\x85\xC0\x0F\x84";
+			char* mask = "xx?xx?xxxxx";
+			*/
+
+			//ManifestSomethingOnlyPerSong
+			/*const char* sig = "\x81\xEC\x00\x00\x00\x00\x53\x56\x57\x8B\xF8\x33\xDB";
+			char* mask = "xx????xxxxxxx";
+			*/
+
+			// Loaded only once at startup
+			/*const char* sig = "\x33\xC5\x89\x45\x00\x53\x57\x50\x8D\x45\x00\x64\xA3\x00\x00\x00\x00\x33\xDB\x38\x5E\x00\x74";
+			char* mask = "xxxx?xxxxx?xx????xxxx?x";
+
+			/* OKAY
+			const char* sig = "\x8B\x85\x78\xFB\xFF\xFF";
+			char* mask = "xxxxxx";*/
+
+			/* TWICE PRE CDLC ?*/
+			/*const char* sig = "\x89\x45\x00\x89\x4D\x00\x52\xB8\x00\x00\x00\x00\x8B\xCE\xC6\x45\x00\x00\xE8\x00\x00\x00\x00\x8B\xBD";
+			char* mask = "xx?xx?xx????xxxx??x????xx";*/
+
+			// sort_based_on_number_of_arrs
+			/*
+			const char* sig = "\xB8\x00\x00\x00\x00\x8B\xCE\x89\x94\x24\x00\x00\x00\x00\xC6\x84\x24\x00\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x8B\x44\x24";
+			char* mask = "x????xxxxx????xxx?????x????xxx";
+
+			const char* sig = "";
+			char* mask = "";
+			*/
+
+			/*const char* sig = "\x55\x8B\xEC\x6A\x00\x68\x00\x00\x00\x00\x64\xA1\x00\x00\x00\x00\x50\x83\xEC\x00\xA1\x00\x00\x00\x00\x33\xC5\x89\x45\x00\x53\x56\x57\x50\x8D\x45\x00\x64\xA3\x00\x00\x00\x00\x8B\x45\x00\x33\xF6";
+			char* mask = "xxxx?x????xx????xxx?x????xxxx?xxxxxx?xx????xx?xx";
+			*/
+
+			// RS1 check
+			/*const char* sig = "\x53\x56\x57\x50\x8D\x45\x00\x64\xA3\x00\x00\x00\x00\x89\x8D";
+			char* mask = "xxxxxx?xx????xx";*/
+
+			
+extern "C" void PrintJustToKnowYouAreAlive() {
+	std::cout << "Le hook has been entered!" << std::endl;
+}
+
+extern "C" void PrintJustToKnowYouAreAlive2() {
+	std::cout << "Le hook nr 2. has been entered!" << std::endl;
+}
+
+void __declspec(naked) hook_Test_LAS_SongIndividual() {
+	__asm {
+		sub esp, 0x1B4
+
+		pushad
+		call PrintJustToKnowYouAreAlive
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+void PrintEAX(DWORD eax) {
+	char buffer[64];
+	snprintf(buffer, sizeof(buffer), "EAX: %X\n", eax);
+	//OutputDebugStringA(buffer);
+	std::cout << buffer;
+}
+
+
+
+void __cdecl print_stringplus(char* str, DWORD eax) {
+	printf("Hooked string: %s, adr: %X\n", str, eax);
+}
+
+void PrintEAXPtr(int eax) {
+	int res = *(int*)eax;
+	char buffer[64];
+	snprintf(buffer, sizeof(buffer), "EAX: %d\n", res);
+	std::cout << buffer;
+
+	DWORD v4 = 0x116F4C4;
+	DWORD res2 = *(DWORD*)v4;
+	res2 += 0x4;
+	std::cout << "v4: " << std::hex << res2 << std::dec << std::endl;
+}
+DWORD addr;
+
+const char aSongkey[] = "SongKey";
+const char aSongInfo[] = "SongInfo";
+
+void __declspec(naked) hook_Test_Old() {
+	__asm {
+		//mov     ecx, [ebp - 034Ch]
+		mov     eax, [ebx]
+		mov     edx, [eax + 4]
+
+		/*push    ebp
+		mov     ebp, esp
+		push    0xFFFFFFFF
+		*/
+
+		/*mov eax, [edi + 0Ch]
+		mov ecx, [ebp - 4]*/
+
+		/* header check
+		mov eax, [ebp + 8]
+		sub esp, 0x30*/
+
+		//sub     esp, 0x110
+
+		//xor eax, ebp
+		//mov[ebp - 0x10], eax
+
+		//mov     eax, [ebp - 0x488]
+
+		//mov[ebp - 0x10], eax
+		//mov[ebp - 0xC], ecx
+
+		//mov eax, OFFSET aSongkey
+
+		//mov eax, OFFSET aSongInfo
+
+
+		/*push ebx
+		push esi
+		push edi
+		push eax
+		lea eax, [ebp - 0xC]
+		*/
+
+		pushad
+		call PrintJustToKnowYouAreAlive
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+void __declspec(naked) hook_1() {
+	__asm {
+		lea     esi, [ebp - 32Ch]
+
+		pushad
+		call PrintJustToKnowYouAreAlive
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+void __declspec(naked) hook_3() {
+	__asm {
+		pushad
+		call PrintJustToKnowYouAreAlive
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+void __declspec(naked) hook_2() {
+	__asm {
+		lea     eax, [ebp - 334h]
+
+		pushad
+		call PrintJustToKnowYouAreAlive2
+		popad
+
+		jmp dword ptr[hookBackAddr2]
+	}
+}
+
+void __declspec(naked) hook_Test2() {
+	__asm {
+		push ebp
+		mov ebp, esp
+		push 0FFFFFFFFh
+
+		pushad
+
+		mov eax, esi
+		push eax
+		call PrintEAX
+		add esp, 4
+
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+// 006A9DF7
+
+void __declspec(naked) hook_Test3() {
+	__asm {
+		/*mov[esi], edi
+		mov edx, [ebp - 0x14]
+
+		pushad
+
+		mov eax, [edi]
+		push edi
+		call PrintEAX
+		add esp, 4
+
+		push edx
+		call PrintEAX
+		add esp, 4
+
+		push ebx
+		call PrintEAX
+		add esp, 4*/
+
+		mov[ebp - 344h], esp
+
+		pushad
+
+		mov eax, edx
+		push eax
+		call PrintEAX
+		add esp, 4
+
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+DWORD addr2 = 0x11414CC;
+void __declspec(naked) hook_Test_AES_CHeck() {
+	__asm {
+		MOV esi, eax
+		ADD ESP, 0x8
+
+		pushad
+
+		mov eax, [EBP - 0xC]
+		push eax
+		call PrintEAX
+		add esp, 4
+
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+void __declspec(naked) hook_Test() {
+	__asm {
+		sub eax, edx
+		sar eax, 2
+		//pushad
+		//mov eax, 0
+
+		pushad
+		push eax
+		call PrintEAX
+		add esp, 4
+
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+void __cdecl PrintStrValue(char* str) {
+	printf("Got string: %s\n", str);
+}
+
+__declspec(naked) void hook_PrintStringPropValue() {
+	__asm {
+		mov eax, ecx
+		lea esi, [eax + 1]
+
+		pushad
+		
+		mov esi, eax       
+		push esi            
+
+		call PrintStrValue   
+		add esp, 4          
+
+		popad
+
+		jmp [hookBackAddr]
+	}
+}
+
+__declspec(naked) void hook_PrintStringPropName() {
+	__asm {
+		push ebp
+		mov ebp, esp
+		test ecx, ecx
+
+		pushad
+
+		mov esi, eax
+		push esi
+
+		call PrintStrValue
+		add esp, 4
+
+		popad
+
+		jmp[hookBackAddr]
+	}
+}
+
+void __declspec(naked) hook_PrintAliveTest() {
+	__asm {
+		sub     esp, 334h
+
+		pushad
+
+		mov eax, ecx
+		push eax
+		call PrintEAX
+		add esp, 4
+
+		//call PrintJustToKnowYouAreAlive
+
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+void __declspec(naked) hook_PrintAlive() {
+	__asm {
+		add     ecx, 2FCh
+
+		pushad
+
+		call PrintJustToKnowYouAreAlive
+
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+void __declspec(naked) hook_PrintAlive2() {
+	__asm {
+		sub esp, 110h
+
+		pushad
+
+		call PrintJustToKnowYouAreAlive2
+
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+void __declspec(naked) hook_Return_Data() {
+	__asm {
+		lea     edi, [ebp - 340h]
+
+		POP EDI;
+		POP ESI
+			POP EBX
+			ADD ESP, 0x368;
+		POP EAX;
+		ADD ESP, 8;
+		MOV ESP, EBP;
+		POP EBP;
+		RET;
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+void __declspec(naked) hook_Return() {
+	__asm {
+		lea ecx, [ebp - 32Ch]
+
+		POP EDI
+		POP ESI
+		POP EBX
+		POP ECX
+		ADD ESP, 370
+		POP EAX
+		ADD ESP, 8
+		MOV ESP, EBP
+		POP EBP
+		RET
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+
+void __declspec(naked) hook_Test_Ptr() {
+	__asm {
+		mov edi, eax
+		mov[ebp + 0x14], edi
+
+		pushad
+
+		push eax
+
+		call PrintEAXPtr
+		add esp, 4
+
+		popad
+
+		jmp dword ptr[hookBackAddr]
+	}
+}
+
+void PatchKeyCheck() {
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
+
+	DWORD patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+		(uint8_t*)"\x0F\x85\x00\x00\x00\x00\x8B\x45\x00\x8B\xC8\x81\xE1\x00\x00\x00\x00\x8B\xD0",
+		"xx????xx?xxxx????xx");
+
+	if (MemUtil.PatchAdr((char*)patchAdr, "\x0F\x84", 2)) {
+		std::cout << "Patched successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to patch!" << std::endl;
+	}
+}
+
+void MakeHeaderCheckFail() {
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
+	DWORD patchAdr;
+
+	patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+		(uint8_t*)
+		"\x74\x00\x8B\x45\x00\x8B\x4D\x00\x8B\x55\x00\x50\x8B\x45\x00\x53",
+		"x?xx?xx?xx?xxx?x");
+
+	if (MemUtil.PatchAdr((char*)patchAdr, "\xEB", 1)) {
+		std::cout << "Patched successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to patch!" << std::endl;
+	}
+}
+
+
+void TestJump() {
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
+	DWORD patchAdr;
+
+	patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+		(uint8_t*)
+		"\x75\x00\x8B\x0E\x8B\x35",
+		"x?xxxx");
+
+	if (MemUtil.PatchAdr((char*)patchAdr, "\xEB", 1)) {
+		std::cout << "Patched successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to patch!" << std::endl;
+	}
+}
+
+void TestCleanupTest() {
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
+
+	const char* sig = "\x83\xC4\x00\x85\xC0\x75\x00\x8B\x0E\x8B\x35";
+	char* mask = "xx?xxx?xxxx";
+
+	hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+	len = 0x5;
+
+	hookBackAddr = hookAddr + len;
+	if (MemUtil.PlaceHook((void*)hookAddr, hook_Test, len)) {
+		std::cout << "Hooked function successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to hook function!" << std::endl;
+	}
+}
+
+void StopAfterKeyCheck() {
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
+
+	const char* sig = "\xC6\x45\x00\x00\x85\xDB\x75\x00\x8B\xCF";
+	char* mask = "xx??xxx?xx";
+
+	hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+	len = 0x5;
+
+	hookBackAddr = hookAddr + len;
+	if (MemUtil.PlaceHook((void*)hookAddr, hook_Return, len)) {
+		std::cout << "Hooked function successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to hook function!" << std::endl;
+	}
+}
+
+void SkipAfterCallingPlus10OnKeyCheckRes() { // Only _p.psarc loaded at that point, no song data
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
+
+	DWORD patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+		(uint8_t*)"\x75\x00\x8B\xCF\x8D\xB5\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x8D\x48\x00\xC6\x45\x00\x00\x39\x48\x00\x74\x00\x8B\x00\x50\xE8\x00\x00\x00\x00\x83\xC4\x00\x8D\x8D\x00\x00\x00\x00\xC6\x45\x00\x00\xE8\x00\x00\x00\x00\xC6\x45",
+		"x?xxxx????x????xx?xx??xx?x?xxxx????xx?xx????xx??x????xx");
+
+	if (MemUtil.PatchAdr((char*)patchAdr, "\x74", 1)) {
+		std::cout << "Patched successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to patch!" << std::endl;
+	}
+}
+
+void TestPatches() {
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
+
+	/*DWORD patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+		(uint8_t*)"\x74\x00\x8B\xCF\x8D\xB5\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x8D\x48\x00\xC6\x45\x00\x00\x39\x48\x00\x74\x00\x8B\x00\x50\x8D\x95\x00\x00\x00\x00\x52\xE8\x00\x00\x00\x00\x83\xC4\x00\xE9\x00\x00\x00\x00\x8B\x0D",
+		"x?xxxx????x????xx?xx??xx?x?xxxxx????xx????xx?x????xx");
+
+	if (MemUtil.PatchAdr((char*)patchAdr, "\x75", 1)) {
+		std::cout << "Patched successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to patch!" << std::endl;
+	}*/
+
+	DWORD patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(),
+		(uint8_t*)"\x74\x00\x8D\x95\x00\x00\x00\x00\x8D\xB5\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x8B\x8D",
+		"x?xx????xx????x????xx");
+
+	if (MemUtil.PatchAdr((char*)patchAdr, "\x75", 1)) {
+		std::cout << "Patched successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to patch!" << std::endl;
+	}
+}
+
+void PatchBeforeLastAppIDCheck() {
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
+
+	const char* sig = "\xE8\x00\x00\x00\x00\x83\xC4\x00\x8D\x8D\x00\x00\x00\x00\x8B\xF0";
+	char* mask = "x????xx?xx????xx";
+
+	DWORD patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+	if (MemUtil.PatchAdr((char*)patchAdr, "\x90\x90\x90\x90\x90", 5)) {
+		std::cout << "Patched successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to patch!" << std::endl;
+	}
+}
+
+void ScrewThingsUp() {
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
+
+	/*const char* sig = "\x8D\x8D\x00\x00\x00\x00\x51\xC6\x45\x00\x00\x8B\xC6";
+	char* mask = "xx????xxx??xx";
+
+	hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+	len = 0x6;
+
+	hookBackAddr = hookAddr + len;
+	if (MemUtil.PlaceHook((void*)hookAddr, hook_Return, len)) {
+		std::cout << "Hooked function successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to hook function!" << std::endl;
+	}*/
+
+	return;
+
+	const char* sig = "\xE8\x00\x00\x00\x00\x83\xC4\x00\x8D\x8D\x00\x00\x00\x00\x8B\xF0";
+	char* mask = "x????xx?xx????xx";
+
+	DWORD patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+	if (MemUtil.PatchAdr((char*)patchAdr, "\x90\x90\x90\x90\x90", 5)) {
+		std::cout << "Patched successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to patch!" << std::endl;
+	}
+}
+
+
+void HookStringPropNames() {
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
+
+	const char* sig = "\x8B\xC1\x8D\x70\x00\x8B\xFF\x8A\x10\x40\x84\xD2\x75\x00\x2B\xC6\x03\xC1\x50\x8B\x45";
+	char* mask = "xxxx?xxxxxxxx?xxxxxxx";
+
+	hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+	len = 0x5;
+
+	hookBackAddr = hookAddr + len;
+	if (MemUtil.PlaceHook((void*)hookAddr, hook_PrintStringPropName, len)) {
+		std::cout << "Hooked function successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to hook function!" << std::endl;
+	}
+}
+
+void HookStringPropValues() {
+	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
+
+	const char* sig = "\x55\x8B\xEC\x85\xC9\x74\x00\x85\xC0\x74\x00\x8B\x11\x56\x50\x8B\x42\x00\xFF\xD0\x8B\xF0\x85\xF6\x74\x00\x8B\x16\x8B\x42\x00\x8B\xCE\xFF\xD0\x85\xC0\x74\x00\x8B\x16\x8B\x42\x00\x8B\xCE\xFF\xD0\x8B\x40";
+	char* mask = "xxxxxx?xxx?xxxxxx?xxxxxxx?xxxx?xxxxxxx?xxxx?xxxxxx";
+
+	hookAddr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
+	len = 0x5;
+
+	hookBackAddr = hookAddr + len;
+	if (MemUtil.PlaceHook((void*)hookAddr, hook_PrintStringPropValue, len)) {
+		std::cout << "Hooked function successfully!" << std::endl;
+	}
+	else {
+		std::cerr << "Failed to hook function!" << std::endl;
+	}
+}
