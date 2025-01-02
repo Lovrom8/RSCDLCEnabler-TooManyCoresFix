@@ -1,13 +1,13 @@
-#include "d3dx9_42.h"
+﻿#include "d3dx9_42.h"
 #include <fstream>
 #include <iostream>
 #include <thread>
 #include <windows.h> 
 #include "MemUtil.h"
 #include "DualLogger.h"
-#include "detours.h"
 #include "VirtualMemory.h"
-#include "NtProtectVirtualMemory.h"
+#include "Util.h"
+#include "WinUser.h"
 
 void CreateConsole() {
 	AllocConsole();
@@ -27,11 +27,9 @@ void CreateConsole() {
 void LetMePlayCDLCEvenThoughIDontHaveCherubRock(uint32_t BaseTextAddress) {
 	uint8_t* AppIdCheckOffset = MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)"\x8B\x90\x00\x00\x00\x00\x56\xFF\xD2\x84\xC0\x75\x38", "xx????xxxxxxx"); // 0x008CA6FC | same instructions, wrong place - 0x00EE9D5C 
 
-	AppIdCheckOffset += 0xB;
-	std::cout << "Pattern found at offset: " << std::hex << (void*)AppIdCheckOffset << std::endl;
-
 	if (AppIdCheckOffset) {
-		VirtualMemory.CheckMemoryProtection((void*)AppIdCheckOffset);
+		AppIdCheckOffset += 0xB;
+		std::cout << "Pattern found at offset: " << std::hex << (void*)AppIdCheckOffset << std::endl;
 
 		if (*(byte*)AppIdCheckOffset != 0x75) {
 			std::cout << "Found unexpected byte at offset. Expected 0x75, got " << std::hex << (int)*(byte*)AppIdCheckOffset << std::endl;
@@ -52,6 +50,7 @@ void LetMePlayCDLCEvenThoughIDontHaveCherubRock(uint32_t BaseTextAddress) {
 		}
 		else {
 			std::cerr << "Failed to patch app ID check." << std::endl;
+			MessageBoxW(NULL, L"Could not find the correct memory location for the API ID check!", L"Error", MB_ICONERROR);
 		}
 
 		std::cout << "--------" << std::endl;
@@ -61,27 +60,33 @@ void LetMePlayCDLCEvenThoughIDontHaveCherubRock(uint32_t BaseTextAddress) {
 	}
 }
 
-DWORD hookAddr;
-DWORD len;
-DWORD hookBackAddr;
-
 void PatchSongKeyLookupTable() {
 	uint32_t BaseTextAddress = VirtualMemory.GetTextSectionAddress();
 
 	const char* sig = "\x74\x00\x83\xC1\x00\x81\xF9\x00\x00\x00\x00\x72";
-	char* mask = "x?xx?xx????x";	
-	
+	char* mask = "x?xx?xx????x";
+
 	DWORD patchAdr = (DWORD)MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)sig, mask);
 	if (MemUtil.PatchAdr((char*)patchAdr, "\xEB", 1)) {
 		std::cout << "Patched song key lookup successfully!" << std::endl;
 	}
 	else {
 		std::cerr << "Failed to patch!" << std::endl;
+		MessageBoxW(NULL, L"Could not find the correct memory location for the DLC lookup table!", L"Error", MB_ICONERROR);
 	}
+}
+
+bool IsLPVersion() {
+	const DWORD imageCRC = GetImageCrc32();
+
+	return imageCRC == 0x6EA6d1BA;
 }
 
 DWORD WINAPI MainThread(void*) {
 	std::cout << "MainThread started." << std::endl;
+
+	VirtualMemory.IsLPVersion = IsLPVersion();
+	VirtualMemory.InitMemoryManagement();
 
 	uint8_t* VerifySignatureOffset = nullptr;
 
@@ -91,17 +96,18 @@ DWORD WINAPI MainThread(void*) {
 		std::cerr << "Failed to get the base address of the .text section." << std::endl;
 		return 0;
 	}
+	else {
+		std::cout << "Base address of .text section at: " << std::hex << (void*)BaseTextAddress << std::endl;
+	}
 
 	while (!GetModuleHandleA("d3d9.dll")) {
 		std::cout << "Waiting for d3d9.dll..." << std::endl;
 		Sleep(1000);
 	}
 
-
 	VerifySignatureOffset = MemUtil.FindPattern(BaseTextAddress, VirtualMemory.GetTextSectionLength(), (uint8_t*)"\x8B\x45\xFC\x2B\xD8\x03\x45\xF8\x56\x53\x50", "xxxxxxxxxxx");
 	if (VerifySignatureOffset) {
 		VerifySignatureOffset += 0x13;
-		VirtualMemory.CheckMemoryProtection((void*)VerifySignatureOffset);
 
 		std::cout << "Pattern found at offset: " << std::hex << (void*)VerifySignatureOffset << std::endl;
 
@@ -121,7 +127,9 @@ DWORD WINAPI MainThread(void*) {
 			{
 				std::cout << "Patched successfully!" << std::endl;
 				LetMePlayCDLCEvenThoughIDontHaveCherubRock(BaseTextAddress);
-				PatchSongKeyLookupTable();
+
+				if (VirtualMemory.IsLPVersion)
+					PatchSongKeyLookupTable();
 			}
 			else {
 				std::cerr << "Failed to patch signature verification." << std::endl;
@@ -134,6 +142,7 @@ DWORD WINAPI MainThread(void*) {
 	}
 	else {
 		std::cerr << "Pattern not found!" << std::endl;
+		MessageBoxW(NULL, L"Could not find the correct memory location for the DLC signature patch!", L"Error", MB_ICONERROR);
 	}
 
 	return 0;

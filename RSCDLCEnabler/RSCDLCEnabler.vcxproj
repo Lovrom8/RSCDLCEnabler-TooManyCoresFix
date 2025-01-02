@@ -15,12 +15,14 @@
     <ClCompile Include="DLLMain.cpp" />
     <ClCompile Include="DualLogger.cpp" />
     <ClCompile Include="MemUtil.cpp" />
+    <ClCompile Include="Util.cpp" />
     <ClCompile Include="VirtualMemory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3DX9_42.h" />
-    <ClInclude Include="detours.h" />
     <ClInclude Include="DualLogger.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="Util.h" />
     <ClInclude Include="VirtualMemory.h" />
     <ClInclude Include="MemUtil.h" />
   </ItemGroup>
@@ -112,14 +114,12 @@
       <OptimizeReferences>true</OptimizeReferences>
       <ModuleDefinitionFile>d3dx9_42.def</ModuleDefinitionFile>
       <AdditionalLibraryDirectories>SDK Path\Lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);detours.lib;</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(TargetPath)" "C:\Program Files (x86)\Steam\steamapps\common\Rocksmith2014\D3DX9_42.dll"</Command>
-      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)D3DX9_42.dll"</Command>
-    </PostBuildEvent>
-    <PostBuildEvent>
+      <Command>copy /Y "$(TargetPath)" "C:\Program Files (x86)\Steam\steamapps\common\Rocksmith2014\D3DX9_42.dll"
+	            copy /Y "$(TargetPath)" "$(SolutionDir)D3DX9_42.dll"</Command>
       <Message>Copying to solution directory...</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
