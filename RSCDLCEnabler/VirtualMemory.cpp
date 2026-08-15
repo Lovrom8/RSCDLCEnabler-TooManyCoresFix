@@ -95,8 +95,30 @@ void cVirtualMemory::CheckMemoryProtection(void* address) {
 	}
 }
 
+bool cVirtualMemory::IsRunningOnWine() {
+	static bool checked = false;
+	static bool isWine = false;
+	if (!checked) {
+		HMODULE hNtdll = GetModuleHandleA("ntdll.dll");
+		if (hNtdll && GetProcAddress(hNtdll, "wine_get_version") != nullptr) {
+			isWine = true;
+		}
+		checked = true;
+	}
+	return isWine;
+}
+
 NTSTATUS cVirtualMemory::RedirectedProtectVirtualMemory(LPVOID lpAddress, SIZE_T dwSize, DWORD flNewProtect, PDWORD lpflOldProtect)
 {
+	if (IsRunningOnWine()) {
+		DWORD oldProtect = 0;
+		if (VirtualProtect(lpAddress, dwSize, flNewProtect, &oldProtect)) {
+			if (lpflOldProtect) *lpflOldProtect = oldProtect;
+			return 0; // STATUS_SUCCESS
+		}
+		return 0xC0000001; // STATUS_UNSUCCESSFUL
+	}
+
 	const HANDLE ProcessHandle = GetCurrentProcess();
 
 	if (IsLPVersion && pfnNtProtectVirtualMemory != nullptr)
@@ -280,6 +302,11 @@ static void* GenerateFixedProtectVirtualMemoryFn(void* originalFnPtr)
 
 void cVirtualMemory::InitMemoryManagement()
 {
+	if (IsRunningOnWine()) {
+		std::cout << "Running under Wine/Proton: Bypassing ntdll unhooking." << std::endl;
+		return;
+	}
+
 	HMODULE ntdllMod = GetModuleHandleA("ntdll.dll");
 	if (!ntdllMod)
 	{

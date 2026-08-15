@@ -27,6 +27,7 @@ public:
 	void InitMemoryManagement();
 	NTSTATUS RedirectedProtectVirtualMemory(LPVOID lpAddress, SIZE_T dwSize, DWORD flNewProtect, PDWORD lpflOldProtect);
 
+	bool IsRunningOnWine();
 	Type_NtProtectVirtualMemory pfnNtProtectVirtualMemory = nullptr;
 	bool IsLPVersion = false;
 };
