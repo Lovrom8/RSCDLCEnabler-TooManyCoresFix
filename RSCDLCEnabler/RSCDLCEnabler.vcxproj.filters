@@ -24,6 +24,9 @@
     <ClCompile Include="MemUtil.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PlainPsarc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="DualLogger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -39,6 +42,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MemUtil.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PlainPsarc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="detours.h">
