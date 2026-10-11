@@ -15,6 +15,7 @@
     <ClCompile Include="DLLMain.cpp" />
     <ClCompile Include="DualLogger.cpp" />
     <ClCompile Include="MemUtil.cpp" />
+    <ClCompile Include="PlainPsarc.cpp" />
     <ClCompile Include="Util.cpp" />
     <ClCompile Include="VirtualMemory.cpp" />
   </ItemGroup>
@@ -25,6 +26,7 @@
     <ClInclude Include="Util.h" />
     <ClInclude Include="VirtualMemory.h" />
     <ClInclude Include="MemUtil.h" />
+    <ClInclude Include="PlainPsarc.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="d3dx9_42.def" />

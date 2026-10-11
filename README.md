@@ -7,3 +7,6 @@
 ## Changelog
 ### 1.1. 
 Generic bug fix
+
+### 1.2.
+Allow loading of CDLC with an unencrypted TOC and unencrypted SNGs.
