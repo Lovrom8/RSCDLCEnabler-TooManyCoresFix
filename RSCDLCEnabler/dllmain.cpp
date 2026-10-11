@@ -7,6 +7,7 @@
 #include "DualLogger.h"
 #include "VirtualMemory.h"
 #include "Util.h"
+#include "PlainPsarc.h"
 #include "WinUser.h"
 
 void CreateConsole() {
@@ -127,6 +128,7 @@ DWORD WINAPI MainThread(void*) {
 			{
 				std::cout << "Patched successfully!" << std::endl;
 				LetMePlayCDLCEvenThoughIDontHaveCherubRock(BaseTextAddress);
+				PatchPlainPsarc();
 
 				if (VirtualMemory.IsLPVersion)
 					PatchSongKeyLookupTable();
